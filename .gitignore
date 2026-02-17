@@ -1,6 +1,10 @@
 # Binaries
-shell
-output/
+/shell
+/cmd/shell/shell
+
+# Output
+/output/
+/cmd/shell/output/
 
 # Sessions & Secrets
 .kshell_session
