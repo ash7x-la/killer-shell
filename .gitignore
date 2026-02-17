@@ -1,0 +1,12 @@
+# Binaries
+shell
+output/
+
+# Sessions & Secrets
+.kshell_session
+*.key
+*.salt
+
+# OS files
+.DS_Store
+Thumbs.db
