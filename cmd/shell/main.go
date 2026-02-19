@@ -96,8 +96,8 @@ func showBanner() {
  | |\  \ \__ \ | | |  __/ | |
  \_| \_/ |___/_| |_|\___|_|_|`)
 	fmt.Printf("%s", reset) // Everything else is white (default)
-	fmt.Printf("\n Kshell Tools V1.0 | Design by ash7x\n")
-	fmt.Printf("\n Killer Shell is a command and control platform and polymorphic payload generator designed for highly monitored environments. This version consolidates the power of a scanner, builder, and controller into a single, portable, standalone binary.\n")
+	fmt.Printf("\n Kshell Tools V1.1 | Design by ash7x\n")
+	fmt.Printf("\n Killer Shell is a command and control platform and polymorphic payload generator designed for highly monitored environments.\n")
 }
 
 func menuShell() {
